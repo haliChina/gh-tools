@@ -1,6 +1,6 @@
 # gh-tools
 
-GitHub 实用油猴脚本：批量删仓库、网络抓包。两个脚本都只在你自己的页面上触发，不会在别人的仓库页出现。
+GitHub 实用油猴脚本：批量删仓库、网络抓包、批量隐藏 Codex 评论。删仓脚本只在你自己的仓库列表页触发，不会在别人的仓库页出现；隐藏 Codex 脚本只在 PR / Issue 详情页出现浮窗。
 
 ## 脚本
 
@@ -8,6 +8,7 @@ GitHub 实用油猴脚本：批量删仓库、网络抓包。两个脚本都只�
 | --- | --- | --- |
 | [github-repo-cleaner.user.js](github-repo-cleaner.user.js) | v2.3.0 | 在自己的仓库列表页勾选多个仓库批量删除 |
 | [network-debug.user.js](network-debug.user.js) | v1.2.0 | 拦截 fetch / XHR / 表单提交并记日志，刷新不清除 |
+| [hide-codex-reviews.user.js](hide-codex-reviews.user.js) | v1.1.0 | 在 PR / Issue 页批量隐藏 Codex bot 的评论与 review，默认只隐藏超限额通知 |
 
 ## 安装
 
@@ -15,6 +16,7 @@ GitHub 实用油猴脚本：批量删仓库、网络抓包。两个脚本都只�
 2. 点上面两个脚本的链接，再点 Tampermonkey 的“安装”。
 3. 删仓脚本：打开 https://github.com/haliChina?tab=repositories ，右下角会出现浮窗。
 4. 抓包脚本：装好后在任意页面右下角出现 NetDebug 浮窗。
+5. 隐藏 Codex 脚本：打开任意 PR / Issue 详情页，右下角会出现浮窗。
 
 ## 删仓脚本用法
 
@@ -43,6 +45,19 @@ GitHub 实用油猴脚本：批量删仓库、网络抓包。两个脚本都只�
 - 日志存在 GM 存储（主）+ localStorage（备），刷新、跳转、关掉重开都在，只有手动点“清空”才会删；上限 300 条，超了删最旧的，每条请求体/响应各截断到 4000 字。
 - 敏感字段（authenticity_token / password / token / secret 等）的值默认打码，只留首尾 4 位，字段名完整保留；点“显示敏感值”可临时看全（仅当前页显示，不改已存日志）。
 
+## 隐藏 Codex 评论脚本用法
+
+1. 打开 PR / Issue 详情页，浮窗会扫描本页已加载的 Codex（chatgpt-codex-connector）评论和 review，报出总数、已隐藏数、待隐藏数。
+2. 内容过滤默认开：只隐藏含指定文案的评论，默认文案是超限额通知的开头 `You have reached your Codex usage limits for code reviews`，真正的 code review 不动。文案可以在浮窗里改，把勾去掉就处理全部 Codex 评论。
+3. 点“隐藏全部”，确认框确认后逐条发隐藏请求，进度逐条打点；已隐藏的自动跳过。
+4. 只处理页面已加载出来的评论，没加载的先滚动或点 Load more，再点“重新扫描”跑一遍。
+
+实测依据（2026-11-12，手动隐藏一条 Codex 评论时抓的 HAR）：隐藏走 `POST /<owner>/<repo>/community/minimize-comment`（`_method=put`），multipart 四字段：`authenticity_token`（页面现取）、`comment_id`（评论的 GraphQL gid，页面容器上的 `data-gid`，普通评论 IC_、review PRR_、review 内评论 PRRC_）、`classifier`。理由用的就是实测的 `LOW_QUALITY`（低质量）。
+
+已知问题：首跑时 13 条待隐藏里有 7 条超限额评论 GitHub 回了 HTTP 422（其余 6 条成功），那 7 条事前是未隐藏状态、结构与成功的无异，原因还没定性。脚本失败时会把 GitHub 的响应原文显示在状态行里，方便接着查。
+
+隐藏不是删除，之后还能在页面上逐条手动取消隐藏。
+
 ## 实测依据（删仓脚本）
 
 2026-11-07，用 Network Debug 脚本抓到的真实删除记录：
@@ -57,6 +72,9 @@ GitHub 实用油猴脚本：批量删仓库、网络抓包。两个脚本都只�
 
 ## 更新记录
 
+- v1.1.0（隐藏 Codex）：加可选内容过滤，默认只隐藏超限额文案的评论，真正的 review 不动。
+- v1.0.1（隐藏 Codex）：失败回显 GitHub 响应原文；token 改多来源轮试。
+- v1.0.0（隐藏 Codex）：首版，按 HAR 实测的 minimize-comment 请求批量隐藏。
 - v2.3.0（删仓）：只在自己的仓库列表页触发（按 owner + Your Repositories 标题判断）；窄屏浮窗默认收起。
 - v2.2.0（删仓）/ v1.2.0（抓包）：去掉全部 emoji / 符号图标，改用文字、CSS 圆点与 SVG。
 - v2.1.0（删仓）/ v1.1.0（抓包）：Primer 风格浮窗 + 深色适配；删仓加已选 chips、进度条、自定义确认弹窗；抓包加分段筛选、卡片式日志、可收起。
